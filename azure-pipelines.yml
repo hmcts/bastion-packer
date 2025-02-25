@@ -70,7 +70,6 @@ stages:
           azure_image_version: $[ dependencies.get_azure_image_version.outputs['get_azure_image_version.azure_image_version'] ]
         steps:
           - checkout: self
-
           - task: AzureCLI@2.208.0
             displayName: Delete published image from previous failure
             condition: and(succeededOrFailed(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
@@ -144,10 +143,10 @@ stages:
       - job: publish_release
         pool:
           vmImage: 'ubuntu-latest'
-        dependsOn: build
+        variables:
+          azure_image_version: $[ stageDependencies.build.get_azure_image_version.outputs['get_azure_image_version.azure_image_version'] ]
         steps:
           - checkout: self
-
           - task: GitHubRelease@1
             displayName: Create GitHubRelease
             condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/heads/master'))
@@ -157,8 +156,8 @@ stages:
               action: 'create'
               target: '$(Build.SourceVersion)'
               tagSource: 'userSpecifiedTag'
-              tag: '$(get_azure_image_version.azure_image_version)'
-              title: '$(get_azure_image_version.azure_image_version)'
+              tag: '$(azure_image_version)'
+              title: '$(azure_image_version)'
               releaseNotesSource: inline
               releaseNotesInline: 'Regular maintenance updates for non-pinned packages'
               addChangeLog: true
