@@ -35,7 +35,7 @@ variable "ssh_password" {
 }
 
 variable "image_name" {
-  default = "bastion-ubuntu"
+  default = "bastion-ubuntu-v2"
 }
 
 variable "client_secret" {
@@ -51,9 +51,9 @@ source "azure-arm" "azure-os-image" {
     imagetype = "bastion-ubuntu"
     timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
   }
-  image_offer                       = "0001-com-ubuntu-server-focal"
+  image_offer                       = "ubuntu-24_04-lts"
   image_publisher                   = "Canonical"
-  image_sku                         = "20_04-lts"
+  image_sku                         = "server"
   location                          = var.azure_location
   managed_image_name                = "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   managed_image_resource_group_name = var.resource_group_name
