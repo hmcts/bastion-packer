@@ -1,6 +1,6 @@
 ## Overview 
 
-This repository contains Packer HCL to build and publish an Ubuntu 18.04 machine image to an Azure Shared Image Gallery.
+This repository contains Packer HCL to build and publish an Ubuntu 24.04 machine image to an Azure Shared Image Gallery.
 
 ## Adding new packages
 
