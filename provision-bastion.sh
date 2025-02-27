@@ -4,6 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 #renovate: datasource=github-tags depName=kubernetes/kubectl
 export KUBECTL_VERSION=$(echo v1.26.0 | tr -d 'v')
 
+# Test image increment
 apt autoremove -y
 
 apt update
