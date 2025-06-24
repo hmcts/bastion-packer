@@ -1,3 +1,12 @@
+packer {
+  required_plugins {
+    azure = {
+      source  = "github.com/hashicorp/azure"
+      version = "2.3.2"
+    }
+  }
+}
+
 variable "azure_image_version" {
   default = "1.0.5"
 }
