@@ -1,3 +1,12 @@
+packer {
+  required_plugins {
+    azure = {
+      source  = "github.com/hashicorp/azure"
+      version = "2.3.2"
+    }
+  }
+}
+
 variable "azure_image_version" {
   default = "1.0.5"
 }
@@ -62,6 +71,11 @@ variable "client_id" {
   default = ""
 }
 
+variable "public_ip_sku" {
+  type = string
+  default = "Standard"
+}
+
 source "azure-arm" "pr-azure-os-image" {
   azure_tags = {
     imagetype = var.image_name
@@ -70,6 +84,7 @@ source "azure-arm" "pr-azure-os-image" {
   image_offer                       = var.image_offer
   image_publisher                   = var.image_publisher
   image_sku                         = var.image_sku
+  public_ip_sku                     = var.public_ip_sku
   location                          = var.azure_location
   managed_image_name                = "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   managed_image_resource_group_name = var.resource_group_name
@@ -102,6 +117,7 @@ source "azure-arm" "azure-os-image" {
   image_offer                       = var.image_offer
   image_publisher                   = var.image_publisher
   image_sku                         = var.image_sku
+  public_ip_sku                     = var.public_ip_sku
   location                          = var.azure_location
   managed_image_name                = "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   managed_image_resource_group_name = var.resource_group_name
