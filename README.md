@@ -35,3 +35,20 @@ By default, renovate will search for versions using `semver` but if your package
 See [renovate versioning](https://docs.renovatebot.com/modules/versioning/) for a list of available versioning schemes.
 
 Because a lot of github releases use `v` prefixes, we have an `echo` statement paired with the `tr` command to remove these in our script when setting the version to be used e.g. `export KUBECTL_VERSION=$(echo v1.26.0 | tr -d 'v')`.
+
+## Pipeline authentication and validation
+
+Azure tasks use `DTS-MANAGEMENT-PROD-INTSVC-WIF`. Packer authenticates through
+that task's Azure CLI session with `use_azure_cli_auth`; client secrets are not
+passed to Packer.
+
+Pull requests and non-master branch runs perform image-version lookup, Packer
+initialization and validation only. They do not build images or run Azure
+cleanup commands. To opt into an actual image build on a non-master branch,
+run the pipeline manually with `buildImage: true`. These builds create temporary
+Azure resources and publish a test image version named `<Build.BuildId>.0.0`,
+which is deleted after the build.
+
+Master and scheduled master runs retain their existing image-build and release
+behavior, including resource cleanup. Do not merge merely to test validation:
+merging triggers a real image build.
