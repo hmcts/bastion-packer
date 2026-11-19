@@ -27,11 +27,15 @@ variable "azure_storage_account" {
   default = ""
 }
 
-variable "subscription_id" {
+variable "temporary_resource_group_name" {
   default = ""
 }
 
-variable "tenant_id" {
+variable "pr_managed_image_name" {
+  default = ""
+}
+
+variable "subscription_id" {
   default = ""
 }
 
@@ -63,16 +67,8 @@ variable "vm_size" {
   default = "Standard_D2ds_v5"
 }
 
-variable "client_secret" {
-  default = ""
-}
-
-variable "client_id" {
-  default = ""
-}
-
 variable "public_ip_sku" {
-  type = string
+  type    = string
   default = "Standard"
 }
 
@@ -86,15 +82,14 @@ source "azure-arm" "pr-azure-os-image" {
   image_sku                         = var.image_sku
   public_ip_sku                     = var.public_ip_sku
   location                          = var.azure_location
-  managed_image_name                = "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  managed_image_name                = var.pr_managed_image_name != "" ? var.pr_managed_image_name : "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   managed_image_resource_group_name = var.resource_group_name
   os_type                           = "Linux"
   ssh_pty                           = "true"
   ssh_username                      = var.ssh_user
   subscription_id                   = var.subscription_id
-  tenant_id                         = var.tenant_id
-  client_id                         = var.client_id
-  client_secret                     = var.client_secret
+  use_azure_cli_auth                = true
+  temp_resource_group_name          = var.temporary_resource_group_name
   vm_size                           = var.vm_size
 
   shared_image_gallery_destination {
@@ -125,9 +120,8 @@ source "azure-arm" "azure-os-image" {
   ssh_pty                           = "true"
   ssh_username                      = var.ssh_user
   subscription_id                   = var.subscription_id
-  tenant_id                         = var.tenant_id
-  client_id                         = var.client_id
-  client_secret                     = var.client_secret
+  use_azure_cli_auth                = true
+  temp_resource_group_name          = var.temporary_resource_group_name
   vm_size                           = var.vm_size
 
   shared_image_gallery_destination {
