@@ -24,15 +24,7 @@ pr:
     include:
       - master
 
-parameters:
-  - name: buildImage
-    displayName: Build an image on a non-master branch (creates Azure resources)
-    type: boolean
-    default: false
-
 variables:
-  - name: buildImages
-    value: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq('${{ parameters.buildImage }}', 'true'))]
   - name: os_version
     value: '24.04'
 
@@ -82,7 +74,6 @@ stages:
           - task: AzureCLI@2
             displayName: Delete any lingering packer resource groups
             name: delete_packer_resource_groups
-            condition: and(succeeded(), eq(variables['buildImages'], 'true'))
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash
@@ -96,16 +87,14 @@ stages:
 
           - task: AzureCLI@2
             displayName: Delete published image from previous failure
-            condition: and(succeededOrFailed(), eq(variables['buildImages'], 'true'), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+            condition: and(succeededOrFailed(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
             name: delete_failed_pr_image
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                if az sig image-version show --gallery-image-version $(Build.BuildId).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg --output none 2>/dev/null; then
-                  az sig image-version delete --gallery-image-version $(Build.BuildId).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg
-                fi
+                az sig image-version delete --gallery-image-version $(System.PullRequest.PullRequestNumber).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg
 
           - task: riezebosch.Packer.PackerTool.PackerTool@0
             displayName: 'Install Packer'
@@ -125,8 +114,31 @@ stages:
                 packer validate "$(templatePath)"
 
           - task: AzureCLI@2
+            displayName: Delete PR managed image from a previous attempt
+            condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+            inputs:
+              azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                managed_image_name='bastion-pr-$(System.PullRequest.PullRequestNumber)-$(Build.BuildId)'
+                if [[ ! "$managed_image_name" =~ ^bastion-pr-[0-9]+-[0-9]+$ ]]; then
+                  echo "Invalid PR managed image name: $managed_image_name" >&2
+                  exit 1
+                fi
+                existing_image=$(az image list --resource-group hmcts-image-gallery-rg --query "[?name == '$managed_image_name'].name" --output tsv)
+                if [[ -n "$existing_image" ]]; then
+                  if [[ "$existing_image" != "$managed_image_name" ]]; then
+                    echo "Unexpected managed image lookup result" >&2
+                    exit 1
+                  fi
+                  az image delete --resource-group hmcts-image-gallery-rg --name "$managed_image_name"
+                fi
+
+          - task: AzureCLI@2
             displayName: PR Build
-            condition: and(succeeded(), eq(variables['buildImages'], 'true'), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+            condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash
@@ -134,13 +146,14 @@ stages:
               inlineScript: |
                 set -euo pipefail
                 export PKR_VAR_subscription_id=$(az account show --query id -o tsv)
-                export PKR_VAR_azure_image_version="$(Build.BuildId).0.0"
+                export PKR_VAR_azure_image_version="$(System.PullRequest.PullRequestNumber).0.0"
                 export PKR_VAR_temporary_resource_group_name="pkr-bastion-$(Build.BuildId)"
+                export PKR_VAR_pr_managed_image_name='bastion-pr-$(System.PullRequest.PullRequestNumber)-$(Build.BuildId)'
                 packer build --only=azure-arm.pr-azure-os-image "$(templatePath)"
 
           - task: AzureCLI@2
             displayName: Cleanup resources on fail
-            condition: and(failed(), eq(variables['buildImages'], 'true'))
+            condition: failed()
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash
@@ -152,20 +165,41 @@ stages:
 
           - task: AzureCLI@2
             displayName: Delete published PR build image version
-            condition: and(succeededOrFailed(), eq(variables['buildImages'], 'true'), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+            condition: and(succeededOrFailed(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
             name: delete_pr_azure_image_version
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                if az sig image-version show --gallery-image-version $(Build.BuildId).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg --output none 2>/dev/null; then
-                  az sig image-version delete --gallery-image-version $(Build.BuildId).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg
+                az sig image-version delete --gallery-image-version $(System.PullRequest.PullRequestNumber).0.0 --gallery-image-definition $(image_name) --gallery-name hmcts --resource-group hmcts-image-gallery-rg
+
+          - task: AzureCLI@2
+            displayName: Delete PR managed image
+            condition: and(succeededOrFailed(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+            inputs:
+              azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                managed_image_name='bastion-pr-$(System.PullRequest.PullRequestNumber)-$(Build.BuildId)'
+                if [[ ! "$managed_image_name" =~ ^bastion-pr-[0-9]+-[0-9]+$ ]]; then
+                  echo "Invalid PR managed image name: $managed_image_name" >&2
+                  exit 1
+                fi
+                existing_image=$(az image list --resource-group hmcts-image-gallery-rg --query "[?name == '$managed_image_name'].name" --output tsv)
+                if [[ -n "$existing_image" ]]; then
+                  if [[ "$existing_image" != "$managed_image_name" ]]; then
+                    echo "Unexpected managed image lookup result" >&2
+                    exit 1
+                  fi
+                  az image delete --resource-group hmcts-image-gallery-rg --name "$managed_image_name"
                 fi
 
           - task: AzureCLI@2
             displayName: Master Build
-            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+            condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/heads/master'))
             inputs:
               azureSubscription: DTS-MANAGEMENT-PROD-INTSVC-WIF
               scriptType: bash

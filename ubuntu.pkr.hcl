@@ -31,6 +31,10 @@ variable "temporary_resource_group_name" {
   default = ""
 }
 
+variable "pr_managed_image_name" {
+  default = ""
+}
+
 variable "subscription_id" {
   default = ""
 }
@@ -78,7 +82,7 @@ source "azure-arm" "pr-azure-os-image" {
   image_sku                         = var.image_sku
   public_ip_sku                     = var.public_ip_sku
   location                          = var.azure_location
-  managed_image_name                = "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  managed_image_name                = var.pr_managed_image_name != "" ? var.pr_managed_image_name : "bastion-ubuntu-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   managed_image_resource_group_name = var.resource_group_name
   os_type                           = "Linux"
   ssh_pty                           = "true"
